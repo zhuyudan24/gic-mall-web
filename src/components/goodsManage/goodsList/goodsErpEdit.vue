@@ -1,0 +1,1598 @@
+<template>
+  <div class="mall-section-container" :style="{ minHeight: mallHeight + 'px' }">
+    <div class="mall-content-section">
+      <div class="mall-content-title">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item :to="{ path: '/goodsList' }">微商城</el-breadcrumb-item>
+          <el-breadcrumb-item class="bread-menu">商品管理</el-breadcrumb-item>
+          <el-breadcrumb-item :to="{ path: '/goodsList' }">商品列表</el-breadcrumb-item>
+          <el-breadcrumb-item>新建商品</el-breadcrumb-item>
+        </el-breadcrumb>
+        <h3>
+          <span>新建商品</span>
+        </h3>
+      </div>
+      <div class="mall-section">
+        <el-form :model="goodsForm" :rules="goodsRules" ref="goodsForm" label-width="90px" class="demo-ruleForm" label-position="right">
+          <div class="form-group">
+            <p class="title">基本信息</p>
+            <el-form-item label="商品类型">
+              <span>ERP同步</span>
+            </el-form-item>
+            <el-form-item label="商品品类">
+              <div class="edit-erp-cate">
+                <el-tag :key="tag.categoryId" v-for="tag in selectCateData" closable :disable-transitions="false" class="tag" size="small">
+                  {{ tag.categoryName }}
+                </el-tag>
+              </div>
+              <!-- <goodsCate @getCateIds="getCateIds" :selectCateData="selectCateData"></goodsCate> -->
+              <span style="display: none">{{ refash }}</span>
+            </el-form-item>
+            <el-form-item label="商品名称" prop="goodsName">
+              <el-input v-model="goodsForm.goodsName" type="text" class="w-900" @input="value => goodsLimit(value)">
+                <span slot="suffix">{{ goodsFormLen.nameLen }}/30</span>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="商品品牌" prop="goodsBrandSelect">
+              <el-select v-model="goodsForm.goodsBrandSelect" placeholder="请选择" class="w-320" value-key="brandId" disabled>
+                <el-option v-for="item in goodsForm.goodsBrand" :key="item.brandId" :label="item.brandName" :value="item.brandId"> </el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="商品属性" style="display: inline-block;" v-show="goodsForm.categoryIds.length > 0" required> </el-form-item>
+            <!-- 商品属性 -->
+
+            <div class="goods-nature" v-show="goodsForm.categoryIds.length > 0" style="margin-bottom:22px">
+              <!-- {{goodsForm.goodsPropertyData}} -->
+              <div style="display:inline-block" v-for="(item, index) in goodsForm.goodsPropertyData" :key="index">
+                <el-form-item :prop="'goodsPropertyData.' + index + '.mallPropValues'" :label="item.propertyName" class="goods-nature-item" :key="item.propertyId" v-if="item.bizRequire" :rules="[{ required: true, message: '请输入' + item.propertyName, trigger: 'blur' }]">
+                  <!-- 文本，整数，实数 -->
+                  <el-input type="text" class="w-260" v-model="item.mallPropValues" v-if="item.propertyType === 'TYP_TEXT' || item.propertyType === 'TYP_NUM' || item.propertyType === 'TYP_REAL_NUM'" :disabled="item.propertyEditStatus"> </el-input>
+                  <!-- 单选 -->
+                  <el-select v-model="item.mallPropValues" placeholder="请选择" class="w-260" v-if="item.propertyType === 'TYP_SINGLE'" value-key="valueId" :disabled="item.propertyEditStatus" filterable clearable>
+                    <el-option v-for="itm in item.children" :key="itm.valueId" :label="itm.valueName" :value="itm"> </el-option>
+                  </el-select>
+                  <!-- 多选 -->
+
+                  <el-select v-model="item.mallPropValues" placeholder="请选择" multiple class="w-260" value-key="valueId" v-if="item.propertyType === 'TYP_CHECK'" :disabled="item.propertyEditStatus" filterable size="small">
+                    <el-option v-for="itm in item.children" :key="itm.valueId" :label="itm.valueName" :value="itm"> </el-option>
+                  </el-select>
+                  <!-- 勾选 -->
+                  <treeselect v-model="item.mallPropValues" :multiple="true" size="small" :options="item.children" placeholder="请选择" :disabled="item.propertyEditStatus" v-if="item.propertyType === 'TYP_MULTI'" class="w-260 tree-select" />
+                  <!-- 时间属性 -->
+                  <el-date-picker v-model="item.mallPropValues" type="datetime" placeholder="选择日期时间" class="w-260" format="yyyy-MM-dd HH:mm:ss" value-format="yyyy-MM-dd HH:mm:ss" :disabled="item.propertyEditStatus" v-if="item.propertyType === 'TYP_TIME'"> </el-date-picker>
+                  <!-- 货币单位 -->
+                  <div v-if="item.propertyType === 'TYP_CURRENCY'">
+                    <el-input type="text" class="w-220" v-model="item.mallPropValues" :disabled="item.propertyEditStatus"> </el-input>
+                    <span class="property-unit">{{ item.units }}</span>
+                  </div>
+                  <!-- 百分比 -->
+                  <div v-if="item.propertyType === 'TYP_PERCENT'">
+                    <el-input type="text" class="w-220" v-model="item.mallPropValues" :disabled="item.propertyEditStatus"> </el-input>
+                    <span class="property-unit">%</span>
+                  </div>
+                </el-form-item>
+                <!-- 非必选 -->
+                <el-form-item :prop="item.propertyName" :label="item.propertyName" class="goods-nature-item" :key="item.propertyId" v-else>
+                  <!-- 文本，整数，实数 -->
+                  <el-input type="text" class="w-260" :disabled="item.propertyEditStatus" v-model="item.mallPropValues" v-if="item.propertyType === 'TYP_TEXT' || item.propertyType === 'TYP_NUM' || item.propertyType === 'TYP_REAL_NUM'"> </el-input>
+                  <!-- 单选 -->
+                  <el-select v-model="item.mallPropValues" placeholder="请选择" class="w-260" v-if="item.propertyType === 'TYP_SINGLE'" value-key="valueId" :disabled="item.propertyEditStatus" filterable clearable>
+                    <el-option v-for="itm in item.children" :key="itm.valueId" :label="itm.valueName" :value="itm"> </el-option>
+                  </el-select>
+                  <!-- 多选 -->
+                  <el-select v-model="item.mallPropValues" placeholder="请选择" multiple class="w-260" value-key="valueId" :disabled="item.propertyEditStatus" v-if="item.propertyType === 'TYP_CHECK'" filterable size="small">
+                    <el-option v-for="itm in item.children" :key="itm.valueId" :label="itm.valueName" :value="itm"> </el-option>
+                  </el-select>
+                  <!-- 勾选 -->
+                  <treeselect v-model="item.mallPropValues" :multiple="true" size="small" :options="item.children" placeholder="请选择" :disabled="item.propertyEditStatus" v-if="item.propertyType === 'TYP_MULTI'" class="w-260 tree-select" />
+                  <!-- 时间属性 -->
+                  <el-date-picker v-model="item.mallPropValues" type="datetime" placeholder="选择日期时间" :disabled="item.propertyEditStatus" class="w-260" format="yyyy-MM-dd HH:mm:ss" value-format="yyyy-MM-dd HH:mm:ss" v-if="item.propertyType === 'TYP_TIME'"> </el-date-picker>
+                  <!-- 货币单位 -->
+                  <div v-if="item.propertyType === 'TYP_CURRENCY'">
+                    <el-input type="text" class="w-220" :disabled="item.propertyEditStatus" v-model="item.mallPropValues"> </el-input>
+                    <span class="property-unit">{{ item.units }}</span>
+                  </div>
+                  <!-- 百分比 -->
+                  <div v-if="item.propertyType === 'TYP_PERCENT'">
+                    <el-input type="text" class="w-220" :disabled="item.propertyEditStatus" v-model="item.mallPropValues"> </el-input>
+                    <span class="property-unit">%</span>
+                  </div>
+                </el-form-item>
+              </div>
+            </div>
+            <el-form-item label="商品主图" style="width:856px">
+              <div class="upload-list-box">
+                <div style="display: inline-block;vertical-align: top;margin-right:5px">
+                  <div v-for="(item, index) in dialogImageUrl" :key="index" class="img-box">
+                    <img width="100%" :src="item.imageUrl" alt="" />
+                    <i class="el-icon-arrow-left" @click="moveLeft(index)"></i>
+                    <i class="el-icon-arrow-right" @click="moveRight(index)"></i>
+                    <i class="el-icon-delete" @click="deteletDialogImageUrl(index)"></i>
+                    <i class="el-icon-zoom-in" @click="enlargeDialogImageUrl(index)"></i>
+                    <div class="dialog-img"></div>
+                  </div>
+                  <el-upload :action="uploadAction" :headers="headersUpload" list-type="picture-card" :on-preview="handlePictureCardPreview" :before-upload="beforeUpload" :on-success="uploadSuccess" with-credentials :show-file-list="false" style="display: inline-block;vertical-align: top;" v-show="uploadStatus">
+                    <i class="el-icon-plus"></i>
+                  </el-upload>
+                </div>
+
+                <el-dialog :visible.sync="dialogVisibleImg">
+                  <img width="100%" :src="dialogEnlargeImageUrl" alt="" />
+                </el-dialog>
+              </div>
+              <span data-v-75235512="" style="font-size: 12px; color: rgb(144, 147, 153);">图片规格宽度大于等于700px，高度不大于宽度的2倍，单张图片大小不超过 2 MB，至少上传1张，最多可上传 10 张。</span>
+            </el-form-item>
+            <el-form-item label="图文详情" required>
+              <div class="tinymce-wrap">
+                <tinymce-edit ref="tinymceWrap" :bodyHtml="goodsForm.imgTextEdit" :projectName="projectName"></tinymce-edit>
+              </div>
+            </el-form-item>
+            <el-form-item label="商品分类" prop="goodsClassifySelect">
+              <treeselect v-model="goodsForm.goodsClassifySelect" :multiple="true" :options="goodsForm.goodsClassifyData" :disable-branch-nodes="true" placeholder="所有分类" class="w-320" />
+            </el-form-item>
+          </div>
+          <div class="form-group" v-show="goodsForm.categoryIds.length > 0">
+            <p class="title">规格信息</p>
+            <el-form-item label="商品规格" v-show="goodsForm.tableStandardList.length > 0">
+              <table class="border-table w-900" v-for="(stardItem, stardIndex) in goodsForm.tableStandardList" :key="stardIndex">
+                <thead>
+                  <tr>
+                    <th style="width:300px">{{ stardItem.standardName }}</th>
+                    <th style="width:300px">备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(valueItem, valueIndex) in stardItem.standardValues" :key="valueIndex">
+                    <td>{{ valueItem.valueName }}</td>
+                    <td>
+                      <el-input size="small" placeholder="请输入内容" v-model="valueItem.remark" @input="remarkLimit(valueItem)"> </el-input>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </el-form-item>
+            <el-form-item label="规格图片" v-show="goodsForm.tableStandardList.length > 0">
+              <span style="font-size:12px;color:#909399">图片规格≥200*200，高度不大于宽度的2倍 ，单张图片大小不超过 2 MB</span>
+              <table class="border-table w-900">
+                <thead>
+                  <tr>
+                    <th v-for="(keyHeaderItem, keyHeaderIndex) in goodsForm.standardKeyHeaderList" :key="keyHeaderIndex">
+                      {{ keyHeaderItem.standardName }}
+                    </th>
+                    <th>图片</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr v-for="(item1, index1) in goodsForm.combineKeyValueList" :key="index1">
+                    <td v-for="(item2, index2) in item1" :key="index2">
+                      <div v-if="item1.length - index2 < 2" class="table-upload">
+                        <el-upload class="avatar-uploader" :action="uploadAction" :headers="headersUpload" :show-file-list="false" :on-success="(response, file, fileList) => tableUploadSuccess(response, file, fileList, item2)" :before-upload="tableBeforeUpload" with-credentials>
+                          <img v-if="item2.valueName" :src="item2.valueName" class="avatar" />
+                          <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+                        </el-upload>
+                      </div>
+                      <div v-else>{{ item2.valueName }}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </el-form-item>
+            <!-- <el-form-item  label="库存模式">
+              <template>
+                <el-radio v-model="goodsForm.stockStatus" label="0">同步库存</el-radio>
+                <el-radio v-model="goodsForm.stockStatus" label="1">设置库存</el-radio>
+              </template>
+            </el-form-item> -->
+            <!-- {{ goodsForm.combineKeyAllValueList }} -->
+            <el-form-item label="sku信息" v-show="goodsForm.tableStandardList.length > 0">
+              <div style="position:relative;" class="w-900">
+                <div class="sku-top"></div>
+                <table class="border-table w-900">
+                  <thead>
+                    <tr>
+                      <th v-for="(keyHeaderItem, keyHeaderIndex) in goodsForm.standardAllHeaderList" :key="keyHeaderIndex">
+                        {{ keyHeaderItem.standardName }}
+                      </th>
+                      <th>价格</th>
+                      <th>库存</th>
+                      <th>SKU编码</th>
+                      <th>商品条形码</th>
+                      <th style="width:80px;">
+                        隐藏<el-tooltip effect="dark" content="若开启按钮，则被隐藏的SKU的库存和价格等信息不填写或全部为0亦可保存和上架，小程序端也无法购买" placement="top-start">
+                          <i class="iconfont icon-xinxixianshi" style="margin-left:5px;"></i>
+                        </el-tooltip>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item1, index1) in goodsForm.combineKeyAllValueList" :key="index1">
+                      <td v-for="(item2, index2) in item1" style="width:120px" :key="index2">
+                        <span v-if="item1.length - index2 < 6">
+                          <!--   <span v-if='goodsForm.stockStatus=="0"'>
+                            {{item2.valueName}}
+                          </span>
+                          <span v-else>{{item2.valueName}}</span> -->
+                          <a href="javaScript:void(0)" :title="item2.valueName" v-if="item1.length - index2 !== 1">
+                            <el-input :disabled="item1.length - index2 === 4 ? true : true" size="small" v-model="item2.valueName" @input="addStock(item1, item2, index2)" v-if="goodsForm.stockStatus == '0'"> </el-input>
+                            <el-input :disabled="item1.length - index2 === 4 ? false : true" size="small" v-model="item2.valueName" @input="addStock(item1, item2, index2)" v-else> </el-input>
+                          </a>
+                          <el-switch v-model="item2.valueName" v-if="item1.length - index2 === 1"> </el-switch>
+                        </span>
+                        <span v-else>{{ item2.valueName ? item2.valueName : '' }}</span>
+                      </td>
+                      <!-- <td>
+                        <el-switch v-model="value3"> </el-switch>
+                      </td> -->
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </el-form-item>
+            <el-form-item label="spu信息" v-show="goodsForm.tableStandardList.length > 0">
+              <table class="border-table w-900">
+                <thead>
+                  <tr>
+                    <th>商品货号</th>
+                    <th>价格</th>
+                    <th>库存</th>
+                    <th>商品条形码</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <el-input size="small" placeholder="请输入内容" v-model="goodsForm.proCode" disabled> </el-input>
+                    </td>
+                    <td>
+                      <el-input size="small" placeholder="请输入内容" v-model="goodsForm.mallProSpuPrice" disabled> </el-input>
+                    </td>
+                    <td>
+                      <el-input size="small" placeholder="" disabled v-model="goodsForm.stock"> </el-input>
+                    </td>
+                    <td>
+                      <el-input size="small" placeholder="请输入内容" disabled v-model="goodsForm.proCodeQuery"> </el-input>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </el-form-item>
+          </div>
+          <div class="form-group">
+            <p class="title">销售信息</p>
+            <el-form-item label="运费模板" prop="templateSelect">
+              <el-select v-model="goodsForm.templateSelect" placeholder="请选择" class="w-320">
+                <el-option v-for="(item, index) in goodsForm.templateList" :key="index" :label="item.templateName" :value="item.freightTemplateId"> </el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="上架方式">
+              <template>
+                <el-radio v-model="goodsForm.putaway" label="1">立即上架</el-radio>
+                <el-radio v-model="goodsForm.putaway" label="2">定时上架</el-radio>
+                <el-radio v-model="goodsForm.putaway" label="3">放入仓库</el-radio>
+              </template>
+            </el-form-item>
+            <el-form-item label="上架时间" v-show="goodsForm.putaway === '2'">
+              <el-date-picker v-model="goodsForm.putawayTime" type="datetime" placeholder="选择日期时间" class="w-320" :pickerOptions="pickerOptions"> </el-date-picker>
+            </el-form-item>
+            <div class="confim-btn" :style="{ width: fixedWidth + 'px' }">
+              <el-form-item class="fix-btn">
+                <el-button type="primary" @click="submitGoodsForm('goodsForm')" :loading="submitLoading" size="small">保存</el-button>
+                <el-button @click="cancelGoodsForm" size="small">返回</el-button>
+              </el-form-item>
+            </div>
+          </div>
+        </el-form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import qs from 'qs';
+import getInputVal from '../../../../static/js/common.js';
+import request from '../../../api/request.js';
+import copy from '../../../../static/js/clone.js';
+import goodsCate from '../../common/goodsCate.vue';
+import Treeselect from '@riophae/vue-treeselect';
+import '@riophae/vue-treeselect/dist/vue-treeselect.css';
+import tinymceEdit from '../../common/tinymce-edit'; //
+
+export default {
+  data() {
+    return {
+      value3: true,
+      mallHeight: document.documentElement.clientHeight - 64 - 98,
+      fixedWidth: document.documentElement.clientWidth - 200,
+      getInputVal: getInputVal,
+      getTime: getInputVal.getTime,
+      getSeconds: getInputVal.getSeconds,
+      goodsForm: {
+        // 商品信息对象
+        goodsName: '',
+        mallProId: '', //商品id
+        createSource: 0, //1代表新商品。0代表老商品
+        goodsBrand: [], //商品品牌列表
+        goodsBrandSelect: '', //商品品牌对象
+        categoryIds: [], //商品品类ids
+        goodsClassifyData: [], //商品分类
+        goodsPropertyData: [], //商品属性
+        goodsClassifySelect: null,
+        goodsStandardData: [], //下拉列表商品规格
+        goodsStandardSelect: [], //下拉列表选中商品规格id
+        tableStandardList: [], //表格里的规格数据
+
+        goodsStandardValueData: [], //下拉列表商品规格值
+        goodsStandardValueSelect: '', //下拉列表选中商品规格值id
+        tableStandardValueList: [], //表格里的规格数据
+        dataIndex: 0,
+
+        standardKeyList: [], //关键规格
+        combineKeyValueList: [], //排列组合后的
+        standardKeyHeaderList: [],
+
+        skuImageJson: [], //提交的关键规格值图片
+        mallProStandardJson: [], //提交的商品规格
+        skuJson: [], //sku信息
+
+        editSkuKeyJson: [], //编辑关键规格状态下
+        editSkuKeyHeader: [], //编辑关键规格头部状态下
+
+        combineKeyAllValueList: [],
+        standardUnkeyList: [], //非关键规格
+        standardUnkeyHeaderList: [],
+
+        combineAllList: [], //关键规格和非关键规格排列组合后的
+        standardAllHeaderList: [], //关键规格和非关键规格头部排列组合后的
+
+        stockStatus: '0', //库存模式
+
+        stock: 0, //spu库存
+        mallProSpuPrice: 0, //spu价格
+        proCode: 0, //商品code
+        proCodeQuery: 0, //商品二维码
+
+        imgTextEdit: '', //图文编辑
+        templateList: [], //运费模板
+        templateSelect: '',
+        putaway: '1', //上方式
+        putawayTime: '' //上架时间
+      },
+      tinymceHtml: '请输入内容',
+      // datetime:new Date(),
+      goodsRules: {
+        //校验
+        goodsName: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
+        goodsBrandSelect: [{ required: true, message: '请选择商品品牌', trigger: 'blur' }],
+        goodsClassifySelect: [{ required: true, message: '请选择商品分类', trigger: 'blur' }],
+        templateSelect: [{ required: true, message: '请选择运费模板', trigger: 'blur' }]
+      },
+      goodsFormLen: {
+        nameLen: 0 //商品名字的字符限制
+      },
+      uploadAction: window.location.origin + '/api-plug/upload-img?requestProject=mall',
+      // uploadAction: 'http://gicdev.demogic.com' + '/api-plug/upload-img?requestProject=mall',
+      headersUpload: {
+        sign: ''
+      },
+      dialogVisible: false, //商品规格弹框
+      dialogStandardValue: false, //商品规格值弹框
+      dialogImageUrl: [],
+      dialogVisibleImg: false, //上传图片
+      projectName: 'mall',
+      batchPrice: '', //批量价格
+      batchStock: '', //批量库存
+      batchSku: '', //批量Sku编码
+      batchBar: '', //批量条形码
+      uploadStatus: true, //上传按钮
+
+      selectCateData: [], //商品品类回显
+      refash: true,
+      dialogEnlargeImageUrl: false,
+      activeName: '',
+      submitLoading: false,
+      pickerOptions: {
+        disabledDate(time) {
+          return time.getTime() < new Date().getTime();
+        }
+      }
+    };
+  },
+  mounted() {
+    // 关闭浏览器窗口的时候清空浏览器缓存在localStorage的数据
+    window.onbeforeunload = function(e) {
+      // var storage = window.localStorage;
+      // storage.clear();
+      localStorage.removeItem('goodsSearch');
+    };
+  },
+  created() {
+    this.getGoodsBrandList(); //商品品牌
+    this.getClassifyList(); //商品分类
+    this.getTemplateList(); //运费模板的列表
+
+    this.goodsForm.mallProId = this.$route.params.mallProId;
+    this.goodsForm.createSource = this.$route.params.createSource;
+    this.activeName = this.$route.params.activeName;
+    if (this.goodsForm.mallProId !== '-1') {
+      //新版商品编辑页面
+      this.getEditMes(); //编辑状态下商品信息
+      this.getStandardImg(); //编辑状态下商品关键规格图片
+    }
+  },
+
+  computed: {},
+  methods: {
+    //根据新版商品id查询信息
+    getEditMes() {
+      let params = {
+        mallProId: this.goodsForm.mallProId
+      };
+      request.get('/api-mall/get-mall-good', { params }).then(res => {
+        if (res.data.errorCode === 0) {
+          for (let i in res.data.result.mallCategories) {
+            //处理shangpin 品类
+            this.goodsForm.categoryIds.push(res.data.result.mallCategories[i].categoryId);
+          }
+          this.selectCateData = res.data.result.mallCategories; //商品品类
+
+          this.getProperyList(); //拉去商品的属性
+          this.goodsForm.imgTextEdit = res.data.result.detailDescription; //商品图文详情
+          this.goodsForm.goodsClassifySelect = res.data.result.mallProTagId; //商品分类
+          this.goodsForm.goodsName = res.data.result.proName; //商品名称
+          this.goodsFormLen.nameLen = getInputVal.getZhLen(this.goodsForm.goodsName); //名字的限制
+          if (res.data.result.mallProStandardJson) {
+            this.goodsForm.tableStandardList = JSON.parse(res.data.result.mallProStandardJson); //商品规格信息
+          }
+
+          // 规格弹框
+          for (let i in this.goodsForm.tableStandardList) {
+            this.goodsForm.goodsStandardSelect.push(this.goodsForm.tableStandardList[i].standardId);
+          }
+
+          // this.goodsForm.tableStandardList = JSON.parse(res.data.result.mallProStandardJson); //商品规格信息
+          if (res.data.result.mallProImageUrl) {
+            this.dialogImageUrl = res.data.result.mallProImageUrl; //商品主图
+          } else {
+            this.dialogImageUrl = [];
+          }
+          if (this.dialogImageUrl.length >= 10) {
+            this.uploadStatus = false;
+          } else {
+            this.uploadStatus = true;
+          }
+          this.goodsForm.goodsBrandSelect = res.data.result.brandId === '-1' ? '' : res.data.result.brandId; //商品品牌
+
+          // 处理商品sku信息
+          if (res.data.result.skuJson) {
+            let header;
+            if (res.data.result.skuJson.length > 0) {
+              header = JSON.parse(res.data.result.skuJson[0].mallPropValues);
+            } else {
+              header = [];
+            }
+
+            for (let i in header) {
+              // 处理得到关键规格的头部列表goodsForm.standardAllHeaderList
+              this.goodsForm.standardAllHeaderList.push({
+                standardName: header[i].propName,
+                standardId: header[i].propId
+              });
+            }
+          }
+
+          for (let i in res.data.result.skuJson) {
+            let tem = JSON.parse(res.data.result.skuJson[i].mallPropValues);
+            tem.push({
+              valueName: res.data.result.skuJson[i].mallProSkuPrice //得到列表数据价格
+            });
+            tem.push({
+              valueName: res.data.result.skuJson[i].stock //得到列表数据库存
+            });
+            tem.push({
+              valueName: res.data.result.skuJson[i].mallProSkuCode //得到列表数据SKU编码
+            });
+            tem.push({
+              valueName: res.data.result.skuJson[i].mallProSkuBarCode //得到列表数据商品条形码
+            });
+            tem.push({
+              valueName: res.data.result.skuJson[i].hidden //得到隐藏
+            });
+            this.goodsForm.combineKeyAllValueList.push(tem);
+          }
+
+          this.goodsForm.proCode = res.data.result.proCode; //商品spu货号
+          this.goodsForm.proCodeQuery = res.data.result.proCodeQuery; //商品spu条形码
+          this.goodsForm.mallProSpuPrice = res.data.result.mallProSpuPrice; //商品spu价格
+          this.goodsForm.stock = res.data.result.stock; //商品spu价格
+          this.goodsForm.templateSelect = res.data.result.freightTemplateId; //运费模板
+          // this.goodsForm.putaway=String(res.data.result.upShelvesStatus)//上架方式
+          if (res.data.result.status === 1) {
+            this.goodsForm.putaway = '3';
+          } else {
+            this.goodsForm.putaway = String(res.data.result.upShelvesStatus); //上架方式
+          }
+          this.goodsForm.putawayTime = res.data.result.upShelvesTime; //上架时间
+          // this.addStock()//计算库存
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    //根据老版商品id查询信息
+    getEditOldMes() {
+      let params = {
+        mallProId: this.goodsForm.mallProId
+      };
+      request.get('/api-mall/get-mall-good', { params }).then(res => {
+        if (res.data.errorCode === 0) {
+          this.goodsForm.imgTextEdit = res.data.result.detailDescription; //商品图文详情
+          this.goodsForm.goodsClassifySelect = res.data.result.mallProTagId; //商品分类
+          this.goodsForm.goodsName = res.data.result.proName; //商品名称
+          this.goodsFormLen.nameLen = getInputVal.getZhLen(this.goodsForm.goodsName); //名字的限制
+          this.dialogImageUrl = res.data.result.mallProImageUrl; //商品主图
+          this.goodsForm.goodsBrandSelect = res.data.result.brandId === '-1' ? '' : res.data.result.brandId; //商品品牌
+          this.goodsForm.templateSelect = res.data.result.freightTemplateId; //运费模板
+          this.goodsForm.putaway = String(res.data.result.upShelvesStatus); //上架方式
+          this.goodsForm.putawayTime = res.data.result.upShelvesTime; //上架时间
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 拉取商品的规格图片信息
+    getStandardImg() {
+      let params = {
+        mallProId: this.goodsForm.mallProId,
+        isErp: true
+      };
+      request.get('/api-mall/list-mall-goods-standard-image', { params }).then(res => {
+        if (res.data.errorCode === 0) {
+          let header;
+          if (res.data.result.length > 0) {
+            header = res.data.result[0].standardValues;
+          } else {
+            header = [];
+          }
+
+          for (let i in header) {
+            // 处理得到关键规格的头部列表goodsForm.standardKeyHeaderList
+            this.goodsForm.standardKeyHeaderList.push({
+              standardName: header[i].standardName,
+              standardId: header[i].standardId
+            });
+          }
+
+          // 处理下来列表goodsForm.combineKeyValueList
+
+          for (let i in res.data.result) {
+            let tem = res.data.result[i].standardValues;
+            tem.push({
+              valueName: res.data.result[i].imageUrl //得到列表数据
+            });
+            this.goodsForm.combineKeyValueList.push(tem);
+          }
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 商品名字的字符限制
+    goodsLimit: function(value) {
+      this.$nextTick(() => {
+        this.goodsForm.goodsName = getInputVal.getInputVal(value, 30);
+        this.goodsFormLen.nameLen = getInputVal.getZhLen(this.goodsForm.goodsName);
+      });
+    },
+    // 商品规格备注的字数限制
+    remarkLimit(item) {
+      this.$nextTick(() => {
+        item.remark = getInputVal.getInputVal(item.remark, 10);
+      });
+    },
+
+    //获取商品品牌
+    getGoodsBrandList() {
+      request.get('/api-mall/list-enterprise-brand').then(res => {
+        if (res.data.errorCode === 0) {
+          this.goodsForm.goodsBrand = res.data.result;
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 获取商品分类
+    getClassifyList() {
+      request.get('/api-mall/list_mall_goods_tag_tree').then(res => {
+        if (res.data.errorCode === 0) {
+          this.goodsForm.goodsClassifyData.push({
+            childTagList: res.data.result.childTagList,
+            mallProTagId: res.data.result.mallProTagId,
+            tagName: res.data.result.tagName
+          });
+          this.getTree(this.goodsForm.goodsClassifyData);
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 商品分类数据处理
+    getTree(data) {
+      for (let i in data) {
+        data[i].label = data[i].tagName;
+        data[i].id = data[i].mallProTagId;
+        data[i].children = data[i].childTagList;
+        if (data[i].children) {
+          if (data[i].children.length) {
+            this.getTree(data[i].children);
+          } else {
+            delete data[i].children;
+          }
+        } else {
+          delete data[i].children;
+        }
+      }
+    },
+
+    // 获取商品属性
+    // 获取商品属性
+    getProperyList() {
+      this.goodsForm.goodsPropertyData = [];
+      let params = {
+        categoryIds: this.goodsForm.categoryIds.join(',')
+      };
+      if (this.goodsForm.mallProId !== '-1') {
+        params.mallProId = this.goodsForm.mallProId;
+      }
+      request.get('/api-mall/list-mall-goods-property', { params }).then(res => {
+        if (res.data.errorCode === 0) {
+          let property = [];
+          property = res.data.result;
+
+          for (let m in property) {
+            //文本
+            property[m].propertyEditStatus = true;
+            if (property[m].fromErp) {
+              //Erp导过来的数据
+              property[m].propertyEditStatus = true; //属性值可编辑
+              if (property[m].propertyType === 'TYP_TEXT' || property[m].propertyType === 'TYP_NUM' || property[m].propertyType === 'TYP_REAL_NUM' || property[m].propertyType === 'TYP_TIME' || property[m].propertyType === 'TYP_CURRENCY' || property[m].propertyType === 'TYP_PERCENT') {
+                property[m].mallPropValues = property[m].mallPropValues[0].valueName;
+              } else if (property[m].propertyType === 'TYP_MULTI') {
+                //勾选
+                for (let j in property[m].children) {
+                  //处理下来列表的数据适用插件
+                  property[m].children[j].label = property[m].children[j].valueName;
+                  property[m].children[j].id = property[m].children[j].valueId;
+                }
+                let checkSelect = [];
+                for (let k in property[m].mallPropValues) {
+                  checkSelect.push(property[m].children[k].valueId);
+                }
+
+                property[m].mallPropValues = checkSelect;
+              } else if (property[m].propertyType === 'TYP_SINGLE') {
+                //单选情况下
+                property[m].mallPropValues = property[m].mallPropValues[0];
+              } else {
+                let dragList = [];
+                for (let k in property[m].mallPropValues) {
+                  //处理数据适用插件
+                  dragList.push({
+                    valueId: property[m].mallPropValues[k].valueId,
+                    valueName: property[m].mallPropValues[k].valueName
+                  });
+                }
+                property[m].mallPropValues = dragList;
+              }
+            } else {
+              //非erp导过来的属性
+              property[m].propertyEditStatus = false; //属性值不可编辑
+              if (property[m].propertyType === 'TYP_TEXT' || property[m].propertyType === 'TYP_NUM' || property[m].propertyType === 'TYP_REAL_NUM' || property[m].propertyType === 'TYP_TIME' || property[m].propertyType === 'TYP_CURRENCY' || property[m].propertyType === 'TYP_PERCENT') {
+                //文本
+                if (property[m].mallPropValues.length) {
+                  property[m].mallPropValues = property[m].mallPropValues[0].valueName;
+                } else {
+                  property[m].mallPropValues = '';
+                }
+              } else if (property[m].propertyType === 'TYP_MULTI') {
+                //勾选
+                for (let j in property[m].children) {
+                  //处理下来列表的数据适用插件
+                  property[m].children[j].label = property[m].children[j].valueName;
+                  property[m].children[j].id = property[m].children[j].valueId;
+                }
+                if (property[m].mallPropValues.length) {
+                  let checkSelect = [];
+                  for (let k in property[m].mallPropValues) {
+                    checkSelect.push(property[m].mallPropValues[k].valueId);
+                  }
+
+                  property[m].mallPropValues = checkSelect;
+                } else {
+                  property[m].mallPropValues = null;
+                }
+              } else if (property[m].propertyType === 'TYP_SINGLE') {
+                //单选
+                if (property[m].mallPropValues.length) {
+                  property[m].mallPropValues = property[m].mallPropValues[0];
+                } else {
+                  property[m].mallPropValues = '';
+                }
+              } else {
+                let dragList = [];
+                for (let k in property[m].mallPropValues) {
+                  //处理数据适用插件
+                  dragList.push({
+                    valueId: property[m].mallPropValues[k].valueId,
+                    valueName: property[m].mallPropValues[k].valueName
+                  });
+                }
+                property[m].mallPropValues = dragList;
+              }
+            }
+          }
+
+          this.goodsForm.goodsPropertyData = property;
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 上传图片前
+    beforeUpload(file) {
+      if (this.dialogImageUrl.length > 9) {
+        this.$message.warning('最多上传10张商品主图');
+        return false;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        this.$message.error('请上传小于2MB的图片');
+        return false;
+      }
+      if (localStorage.getItem('sign')) {
+        this.headersUpload.sign = localStorage.getItem('sign');
+      } else {
+        this.headersUpload.sign = '';
+      }
+      var that = this;
+      return new Promise(function(resolve, reject) {
+        let reader = new FileReader();
+        reader.onload = function(event) {
+          let image = new Image();
+          image.onload = function() {
+            let width = this.width;
+            let height = this.height;
+            if (width < 700 || width / height < 1 / 2) {
+              that.$message.error('请上传正确的图片尺寸');
+              reject();
+            }
+            resolve();
+          };
+          image.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    },
+    // 预览
+    handlePictureCardPreview(file) {
+      this.dialogImageUrl = file.url;
+      this.dialogVisibleImg = true;
+    },
+    // 上传图片成功
+    uploadSuccess(response, file, fileList) {
+      if (response.errorCode === 0) {
+        this.dialogImageUrl.push({
+          imageUrl: response.result[0].qcloudImageUrl,
+          imageCode: response.result[0].imageFiledCode
+        });
+        this.$message.success('上传成功');
+        if (this.dialogImageUrl.length === 10) {
+          this.uploadStatus = false;
+        } else {
+          this.uploadStatus = true;
+        }
+      } else {
+        this.$message.error(response.message);
+      }
+    },
+    // 删除
+    deteletDialogImageUrl(index) {
+      this.uploadStatus = true;
+      this.dialogImageUrl.splice(index, 1);
+    },
+    // 放大
+    enlargeDialogImageUrl(index) {
+      this.dialogEnlargeImageUrl = this.dialogImageUrl[index].imageUrl;
+      this.dialogVisibleImg = true;
+    },
+    // 左移一位
+    moveLeft(index) {
+      this.swapArray(this.dialogImageUrl, index, index - 1);
+    },
+    //右移一位
+    moveRight(index) {
+      this.swapArray(this.dialogImageUrl, index, index + 1);
+    },
+    //两个数据条换位置
+    swapArray(arr, index1, index2) {
+      arr[index1] = arr.splice(index2, 1, arr[index1])[0];
+      return arr;
+    },
+
+    // 确认规格弹框
+    getStandardSelectList() {
+      // let allSelect = copy(this.goodsForm.tableStandardList)
+      this.goodsForm.goodsStandardSelect = [];
+      let temArr = [];
+      for (let item of this.goodsForm.tableStandardList) {
+        temArr.push(item.standardId);
+      }
+      for (let i in this.goodsForm.goodsStandardSelect) {
+        if (temArr.indexOf(this.goodsForm.goodsStandardSelect[i]) === -1) {
+          for (let j in this.goodsForm.goodsStandardData) {
+            if (this.goodsForm.goodsStandardSelect[i] === this.goodsForm.goodsStandardData[j].standardId) {
+              this.goodsForm.tableStandardList.push({
+                standardName: this.goodsForm.goodsStandardData[j].standardName,
+                standardId: this.goodsForm.goodsStandardData[j].standardId,
+                pivotal: this.goodsForm.goodsStandardData[j].pivotal
+              });
+            }
+          }
+        }
+      }
+
+      this.handleDate(this.goodsForm.tableStandardList);
+      // this.handleStandard(this.goodsForm.tableStandardList)
+      this.dialogVisible = false;
+    },
+
+    //添加规格值获取规格值列表
+    handleAddStandardValue(standardId, index) {
+      this.dataIndex = index;
+      this.dialogStandardValue = true;
+      let params = {
+        categoryIds: this.goodsForm.categoryIds.join(','),
+        standardId: standardId
+      };
+      request.get('/api-mall/list-mall-goods-standard-values', { params }).then(res => {
+        if (res.data.errorCode === 0) {
+          this.goodsForm.goodsStandardValueData = res.data.result;
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+
+      // 通过index动态改变规格值弹框里面对应规格选中的值并赋值
+      for (let i in this.goodsForm.tableStandardList[index].standardValues) {
+        this.goodsForm.goodsStandardValueSelect.push(this.goodsForm.tableStandardList[index].standardValues[i].valueId);
+      }
+    },
+
+    // 确认规格值弹框
+    getStandardSelectValueList() {
+      this.goodsForm.tableStandardValueList = []; //规格值列表
+      for (let m in this.goodsForm.goodsStandardValueSelect) {
+        for (let n in this.goodsForm.goodsStandardValueData) {
+          if (this.goodsForm.goodsStandardValueSelect[m] === this.goodsForm.goodsStandardValueData[n].valueId) {
+            this.goodsForm.tableStandardValueList.push({
+              valueName: this.goodsForm.goodsStandardValueData[n].valueName,
+              valueId: this.goodsForm.goodsStandardValueData[n].valueId,
+              remark: ''
+            });
+          }
+        }
+      }
+      this.goodsForm.tableStandardList[this.dataIndex].standardValues = this.goodsForm.tableStandardValueList;
+      this.dialogStandardValue = false;
+      this.handleDate(this.goodsForm.tableStandardList);
+      // this.handleStandard(this.goodsForm.tableStandardList)
+    },
+    // 处理关键规格数据得到想要的格式，以便于对数据进行排列组合
+    handleDate(tableList) {
+      // 得到关键规格列表即表格表头
+      this.goodsForm.standardKeyHeaderList = []; //清空关键规格头部
+      for (let m in tableList) {
+        if (tableList[m].pivotal) {
+          this.goodsForm.standardKeyHeaderList.push(tableList[m]);
+        }
+      }
+      //处理数据得到关键规格值列表
+      this.goodsForm.standardKeyList = [];
+      for (let i = 0; i < tableList.length; i++) {
+        if (tableList[i].pivotal) {
+          if (tableList[i].standardValues) {
+            this.goodsForm.standardKeyList.push(tableList[i].standardValues);
+          } else {
+            this.goodsForm.standardKeyList.push([
+              {
+                valueName: '',
+                valueId: ''
+              }
+            ]);
+          }
+        }
+      }
+      this.goodsForm.standardKeyList.push([
+        {
+          valueName: '',
+          valueId: ''
+        }
+      ]);
+      let keyList = copy(this.goodsForm.standardKeyList);
+      this.goodsForm.combineKeyValueList = copy(this.combine(copy(this.goodsForm.standardKeyList)));
+      this.handleStandard(tableList, keyList);
+    },
+    // 表格里面的图片上传前面
+    tableBeforeUpload(file) {
+      if (file.size > 2 * 1024 * 1024) {
+        this.$message.error('请上传小于2MB的图片');
+        return false;
+      }
+      if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+        this.$message.error('图片格式错误');
+        return false;
+      }
+      if (localStorage.getItem('sign')) {
+        this.headersUpload.sign = localStorage.getItem('sign');
+      } else {
+        this.headersUpload.sign = '';
+      }
+      var that = this;
+      return new Promise(function(resolve, reject) {
+        let reader = new FileReader();
+        reader.onload = function(event) {
+          let image = new Image();
+          image.onload = function() {
+            let width = this.width;
+            let height = this.height;
+            if (width < 200 || width / height < 1 / 2 || height < 200) {
+              that.$message.error('请上传正确的图片尺寸');
+              reject();
+            }
+            resolve();
+          };
+          image.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    },
+    // 表格里面的图片上传成功
+    tableUploadSuccess(response, file, fileList, item2) {
+      if (response.errorCode === 0) {
+        item2.valueName = response.result[0].qcloudImageUrl;
+        item2.valueId = response.result[0].imageFiledCode;
+        this.$message.success('上传成功');
+      } else {
+        this.$message.error(response.message);
+      }
+    },
+    // 处理规格数据
+    handleStandard(standardList, list) {
+      list.pop();
+      // 得到非关键规格列表即表格表头
+      this.goodsForm.standardUnkeyHeaderList = []; //清空关键规格头部
+      for (let m in standardList) {
+        if (!standardList[m].pivotal) {
+          this.goodsForm.standardUnkeyHeaderList.push(standardList[m]);
+        }
+      }
+      this.goodsForm.standardAllHeaderList = this.goodsForm.standardKeyHeaderList.concat(this.goodsForm.standardUnkeyHeaderList);
+      //处理数据得到非关键规格值列表
+      this.goodsForm.standardUnkeyList = [];
+      var keyList = [];
+      for (let i = 0; i < standardList.length; i++) {
+        //非关键规格
+        if (!standardList[i].pivotal) {
+          if (standardList[i].standardValues) {
+            this.goodsForm.standardUnkeyList.push(standardList[i].standardValues);
+          } else {
+            this.goodsForm.standardUnkeyList.push([
+              {
+                valueName: '',
+                valueId: ''
+              }
+            ]);
+          }
+        } else {
+          //关键规格
+
+          if (standardList[i].standardValues) {
+            keyList.push(standardList[i].standardValues);
+          } else {
+            keyList.push([
+              {
+                valueName: '',
+                valueId: ''
+              }
+            ]);
+          }
+        }
+      }
+
+      this.goodsForm.standardUnkeyList.push([
+        {
+          valueName: '',
+          valueId: ''
+        }
+      ]);
+      this.goodsForm.standardUnkeyList.push([
+        {
+          valueName: '',
+          valueId: ''
+        }
+      ]);
+      this.goodsForm.standardUnkeyList.push([
+        {
+          valueName: '',
+          valueId: ''
+        }
+      ]);
+      this.goodsForm.standardUnkeyList.push([
+        {
+          valueName: '',
+          valueId: ''
+        }
+      ]);
+      this.goodsForm.combineAllList = list.concat(this.goodsForm.standardUnkeyList);
+
+      this.goodsForm.combineKeyAllValueList = copy(this.combine(copy(this.goodsForm.combineAllList)));
+    },
+    // 取消规格值弹框
+    cancelSelectValueList() {
+      this.goodsForm.goodsStandardValueSelect = [];
+      this.dialogStandardValue = false;
+    },
+    // 排列组合规格值
+    combine(arr) {
+      arr.reverse();
+      var r = [];
+
+      (function f(t, a, n) {
+        if (n == 0) return r.push(t);
+        for (let i = 0; i < a[n - 1].length; i++) {
+          f(t.concat(a[n - 1][i]), a, n - 1);
+        }
+      })([], arr, arr.length);
+      // let t = r;
+      return r; //r是排列组合后的数据与
+    },
+    // 合并单元格
+    //获取运费列表
+    getTemplateList() {
+      request.get('/api-mall/list-mall-goods-freight').then(res => {
+        if (res.data.errorCode === 0) {
+          this.goodsForm.templateList = res.data.result;
+        } else {
+          this.$message.error(res.data.message);
+        }
+      });
+    },
+    // 处理sku信息得到要提交的数据格式
+    handleStandSku() {
+      let arrValue = copy(this.goodsForm.combineKeyAllValueList); //规格值信息
+      // let objList;
+      let outArr;
+      let outArr1;
+      let skuPrice = [];
+      let skuSta = [];
+      for (let i in arrValue) {
+        //先获取sku价格条码这些
+        outArr = copy(arrValue[i]); //得到固定的数据
+        outArr1 = outArr.splice(outArr.length - 5, 5);
+
+        for (let k in outArr) {
+          delete outArr[k].remark;
+          outArr[k].propName = this.goodsForm.standardAllHeaderList[k].standardName;
+          outArr[k].propId = this.goodsForm.standardAllHeaderList[k].standardId;
+        }
+        this.goodsForm.skuJson = [];
+        // this.goodsForm.skuJson.mallPropValues=outArr
+        skuSta.push(outArr);
+        skuPrice.push(outArr1);
+      }
+      for (let j in arrValue) {
+        //数据的个数
+        this.goodsForm.skuJson.push({
+          mallProSkuPrice: skuPrice[j][0].valueName,
+          stock: skuPrice[j][1].valueName,
+          mallProSkuCode: skuPrice[j][2].valueName,
+          mallProSkuBarCode: skuPrice[j][3].valueName,
+          mallPropValues: skuSta[j],
+          hidden: skuPrice[j][4].valueName
+        });
+      }
+    },
+
+    //计算库存
+    addStock(item1, item2, index) {
+      if (item1.length - index === 5) {
+        if (item2) {
+          item2.valueName = Number(item2.valueName).toFixed(2);
+        }
+      }
+      if (item1.length - index === 4) {
+        //库存
+        if (item2) {
+          item2.valueName = Number(item2.valueName).toFixed(2);
+        }
+      }
+      let temSum = 0;
+
+      for (let i in this.goodsForm.combineKeyAllValueList) {
+        for (let j in this.goodsForm.combineKeyAllValueList[i]) {
+          if (this.goodsForm.combineKeyAllValueList[i].length - j == 3) {
+            if (this.goodsForm.combineKeyAllValueList[i][j].valueName !== '') temSum += Number(this.goodsForm.combineKeyAllValueList[i][j].valueName);
+          }
+        }
+      }
+      this.goodsForm.stock = temSum;
+
+      // }
+    },
+
+    submitGoodsForm(goodsForm) {
+      this.goodsForm.putawayTime = this.getTime(this.goodsForm.putawayTime) + ' ' + this.getSeconds(this.goodsForm.putawayTime);
+      this.goodsForm.imgTextEdit = this.$refs.tinymceWrap.tinymceHtml;
+      if (this.goodsForm.categoryIds.length === 0) {
+        //商品品类
+        this.$message.error('请选择商品品类');
+        return false;
+      } else if (this.dialogImageUrl.length === 0) {
+        this.$message.error('请选择商品主图');
+        return false;
+      } else if (this.goodsForm.imgTextEdit === '' || !this.goodsForm.imgTextEdit) {
+        this.$message.error('请编辑图文详情');
+        return false;
+      } else if (this.goodsForm.tableStandardList.length === 0) {
+        this.$message.error('请添加规格信息');
+        return false;
+      }
+
+      this.$refs[goodsForm].validate(valid => {
+        if (valid) {
+          for (let item of this.goodsForm.combineKeyValueList) {
+            if (!item[item.length - 1].valueName && item.length !== 1) {
+              this.$message.error('请上传规格图片');
+              return false;
+            }
+          }
+
+          for (let item1 of this.goodsForm.combineKeyAllValueList) {
+            // if(!item1[item1.length-1].valueName){
+            //   this.$message.error("请上传商品条形码")
+            //   return false
+            // }
+            if (!item1[item1.length - 3].valueName && !item1[item1.length - 1].valueName) {
+              this.$message.error('请上传SKU编码');
+              return false;
+            }
+            if (!item1[item1.length - 4].valueName && item1[item1.length - 4].valueName !== 0 && !item1[item1.length - 1].valueName) {
+              this.$message.error('请上传库存');
+              return false;
+            }
+            if (!item1[item1.length - 5].valueName && !item1[item1.length - 1].valueName) {
+              this.$message.error('请上传sku价格');
+              return false;
+            }
+          }
+
+          this.handleStandSku(); //处理sku信息得到要提交的数据格式
+
+          // 处理sku图片数据
+          this.goodsForm.skuImageJson = [];
+          for (let i in this.goodsForm.combineKeyValueList) {
+            let valueId = '';
+            for (let j = 0; j < this.goodsForm.combineKeyValueList[i].length - 1; j++) {
+              valueId = valueId + '_' + this.goodsForm.combineKeyValueList[i][j].valueId;
+            }
+            this.goodsForm.skuImageJson.push({
+              valueId: valueId,
+              imageUrl: copy(this.goodsForm.combineKeyValueList[i]).pop().valueName,
+              imageFileCode: copy(this.goodsForm.combineKeyValueList[i]).pop().valueId
+            });
+          }
+          // 过滤商品属性数据
+          let filterProperty = [];
+          for (let i in this.goodsForm.goodsPropertyData) {
+            filterProperty.push({
+              mallPropId: this.goodsForm.goodsPropertyData[i].propertyId
+            });
+            filterProperty[i].mallPropValues = [];
+            if (
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_TEXT' ||
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_NUM' ||
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_REAL_NUM' ||
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_TIME' ||
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_CURRENCY' ||
+              this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_PERCENT'
+            ) {
+              filterProperty[i].mallPropValues.push({
+                valueName: this.goodsForm.goodsPropertyData[i].mallPropValues,
+                valueId: ''
+              });
+            } else if (this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_MULTI') {
+              //多选
+              for (let j in this.goodsForm.goodsPropertyData[i].mallPropValues) {
+                filterProperty[i].mallPropValues.push({
+                  valueName: '',
+                  valueId: this.goodsForm.goodsPropertyData[i].mallPropValues[j]
+                });
+              }
+            } else if (this.goodsForm.goodsPropertyData[i].propertyType === 'TYP_SINGLE') {
+              //单选
+              filterProperty[i].mallPropValues.push({
+                valueName: this.goodsForm.goodsPropertyData[i].mallPropValues.valueName,
+                valueId: this.goodsForm.goodsPropertyData[i].mallPropValues.valueId
+              });
+            } else {
+              //其他
+
+              for (let j1 in this.goodsForm.goodsPropertyData[i].mallPropValues) {
+                filterProperty[i].mallPropValues.push({
+                  valueName: this.goodsForm.goodsPropertyData[i].mallPropValues[j1].valueName,
+                  valueId: this.goodsForm.goodsPropertyData[i].mallPropValues[j1].valueId
+                });
+              }
+            }
+          }
+          let params = {
+            mallCategoryIds: this.goodsForm.categoryIds.join(','), //商品品类
+            mallProTagId: this.goodsForm.goodsClassifySelect.join(','), //商品分类
+            proName: this.goodsForm.goodsName.trim(), //商品名称
+            brandId: this.goodsForm.goodsBrandSelect, //商品品牌id
+            mallProImageUrl: JSON.stringify(this.dialogImageUrl), //商品主图
+
+            mallProStandardJson: JSON.stringify(this.goodsForm.tableStandardList), //商品规格数据
+            skuImageJson: JSON.stringify(this.goodsForm.skuImageJson), //sku图片
+            propJson: JSON.stringify(filterProperty), //商品属性
+            skuJson: JSON.stringify(this.goodsForm.skuJson), //sku信息
+
+            stock: this.goodsForm.stock, //spu库存
+            mallProSpuPrice: this.goodsForm.mallProSpuPrice, //spu价格
+            proCode: this.goodsForm.proCode, //spu商品code
+            proCodeQuery: this.goodsForm.proCodeQuery, //spu商品二维码
+            detailDescription: this.goodsForm.imgTextEdit,
+            stockOptType: 1, //扣库存类型 1创建订单时扣 2付款时扣
+            freightTemplateId: this.goodsForm.templateSelect, //运费模板ID
+            upShelvesStatus: this.goodsForm.putaway, //上架方式
+            upShelvesTime: this.goodsForm.putaway === '2' ? this.goodsForm.putawayTime : '', //上架时间
+            status: this.goodsForm.putaway === '3' ? 1 : 2, //0删除 1仓库 2上架 3回收站,//0删除 1仓库 2上架 3回收站
+            proType: 'TYP_ERP'
+          };
+          if (this.goodsForm.mallProId !== '-1') {
+            params.mallProId = this.goodsForm.mallProId;
+          }
+
+          if ((this.goodsForm.stock === 0 && this.goodsForm.putaway == 1) || (this.goodsForm.stock === 0 && this.goodsForm.putaway == 2)) {
+            this.$message.error('商品总库存为0的商品不可上架');
+            return false;
+          }
+          this.submitLoading = true;
+          request.post('/api-mall/save-gic-mall-goods', qs.stringify(params)).then(res => {
+            if (res.data.errorCode === 0) {
+              this.$message.success('保存成功');
+              this.$router.push({
+                name: 'goodsList'
+              });
+              // this.$router.push({path: '/goodsList', query: {activeName: this.activeName}})
+              this.submitLoading = false;
+            } else {
+              this.$message.error(res.data.message);
+              this.submitLoading = false;
+            }
+          });
+        } else {
+          this.submitLoading = false;
+          return false;
+        }
+      });
+    },
+    //取消编辑
+    cancelGoodsForm() {
+      this.$router.go(-1);
+      // this.$router.push({path: '/goodsList', query: {activeName: this.activeName}})
+    }
+  },
+  components: {
+    Treeselect,
+    goodsCate,
+    tinymceEdit
+  }
+};
+</script>
+<style>
+.goods-nature-item .el-form-item__label {
+  line-height: 20px;
+}
+.tree-select .vue-treeselect__multi-value-item {
+  line-height: 26px;
+}
+.tree-select .vue-treeselect--has-value .vue-treeselect__multi-value {
+  margin-bottom: 0px;
+}
+
+.tree-select .vue-treeselect__multi-value-item-container {
+  line-height: 26px;
+}
+.vue-treeselect--disabled .vue-treeselect__control {
+  background: #f5f7fa;
+}
+/*表格中上传组件样式调整*/
+.table-upload .avatar-uploader {
+  height: 40px;
+  padding: 8px 0;
+}
+.table-upload .avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  height: 40px;
+}
+
+.table-upload .avatar-uploader .el-upload:hover {
+  border-color: #409eff;
+}
+.table-upload .avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+}
+.table-upload .avatar {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+.edit-erp-cate .el-tag {
+  background: #f5f7fa;
+  color: #c0c4cc;
+  border: 1px solid #dcdfe6;
+}
+.edit-erp-cate .el-tag__close.el-icon-close {
+  color: #fff;
+  background: #c0c4cc;
+}
+.edit-erp-cate .el-tag .el-icon-close:hover {
+  color: #fff;
+}
+.upload-list-box .el-upload--picture-card {
+  width: 104px;
+  height: 104px;
+  line-height: 104px;
+}
+</style>
+<style scoped>
+.bread-container {
+  background: #fff;
+}
+.mall-content-title h3 {
+  padding: 24px 0 0 0;
+}
+.w-900 {
+  width: 900px;
+}
+.mall-section {
+  margin: 24px;
+}
+.form-group {
+  background: #fff;
+  /*padding:24px 32px;*/
+  margin-bottom: 25px;
+  padding-bottom: 24px;
+}
+
+.form-group .el-form-item {
+  margin-left: 32px;
+}
+.form-group .title {
+  height: 55px;
+  line-height: 55px;
+  border-bottom: 1px solid #e4e7ed;
+  font-weight: 500;
+  margin-bottom: 25px;
+  padding-left: 32px;
+  font-size: 16px;
+}
+.w-320 {
+  width: 320px;
+}
+.goods-nature {
+  width: 900px;
+  padding: 20px 25px;
+  display: inline-block;
+  vertical-align: top;
+  background: #f5f7fa;
+  box-sizing: border-box;
+  border-radius: 2px;
+}
+.goods-nature-item {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.goods-nature-item:nth-of-type(odd) {
+  margin-right: 30px;
+}
+
+.w-220 {
+  width: 220px;
+}
+.property-unit {
+  width: 32px;
+  height: 32px;
+  line-height: 40px;
+  text-align: center;
+  border: 1px solid #dcdfe6;
+  display: inline-block;
+  box-sizing: border-box;
+  margin-left: -4px;
+  border-left: none;
+}
+.el-form-item__label {
+  line-height: auto;
+}
+.upload-list-box {
+  /*margin-top:22px;*/
+}
+/*规格表格*/
+.form-group .border-table {
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+.border-table {
+  font-size: 14px;
+  color: #606266;
+  border: 1px #e4e7ed solid;
+}
+.border-table thead tr {
+  background: #f1f3f7;
+  text-align: left;
+}
+.border-table thead th {
+  height: 44px;
+  line-height: 44px;
+  padding: 0 15px;
+  border: 1px #e4e7ed solid;
+}
+.border-table tbody td {
+  padding: 10px 15px;
+  border: 1px #e4e7ed solid;
+  vertical-align: middle;
+}
+.border-table-operate {
+  margin-right: 20px;
+}
+.img-box {
+  width: 104px;
+  height: 104px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-right: 5px;
+  position: relative;
+}
+.img-box img {
+  border-radius: 6px;
+}
+
+.dialog-img {
+  width: 104px;
+  height: 104px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.img-box:hover .dialog-img {
+  display: block;
+}
+.el-icon-delete {
+  position: absolute;
+  left: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  font-size: 20px;
+  color: #fff;
+  z-index: 2;
+}
+.el-icon-zoom-in {
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  font-size: 20px;
+  color: #fff;
+  z-index: 2;
+}
+.el-icon-arrow-left {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  font-size: 20px;
+  color: #fff;
+  z-index: 2;
+}
+.el-icon-arrow-right {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  font-size: 20px;
+  color: #fff;
+  z-index: 2;
+}
+.img-box:hover i {
+  display: block;
+  cursor: pointer;
+}
+.img-box:first-child .el-icon-arrow-left {
+  display: none;
+}
+.img-box:last-child .el-icon-arrow-right {
+  display: none;
+}
+/*.img-box:hover img{
+    opacity:0.6;
+    cursor: pointer;
+  }*/
+.img-box img {
+  width: 104px;
+  height: 104px;
+}
+.sku-input {
+  width: 120px;
+  display: inline-block;
+}
+.sku-top {
+  text-align: right;
+  margin-bottom: 15px;
+  font-size: 0;
+}
+.sku-top .sku-input {
+  margin-right: 10px;
+  vertical-align: top;
+}
+.confim-btn {
+  height: 32px;
+  padding: 12px 0;
+  position: fixed;
+  bottom: 0px;
+  left: 200px;
+  background: #fff;
+  z-index: 2;
+  text-align: center;
+  border-top: 1px solid #dcdfe6;
+}
+.fix-btn {
+  margin-left: -100px;
+}
+
+.edit-erp-cate {
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  width: 900px;
+  background: #f5f7fa;
+  box-sizing: border-box;
+  cursor: not-allowed;
+  min-height: 32px;
+}
+.edit-erp-cate .tag {
+  margin: 0 6px;
+  cursor: not-allowed;
+  line-height: 24px;
+}
+.w-260 {
+  width: 260px;
+}
+</style>
